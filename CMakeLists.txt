@@ -1,9 +1,25 @@
 cmake_minimum_required(VERSION 3.12)
+set(NAME projectname)
+
 include(pico_sdk_import.cmake)
+
+project(projectname C CXX ASM)
+set(CMAKE_C_STANDARD 11)
+set(CMAKE_CXX_STANDARD 17)
 
 # Initialize the SDK
 pico_sdk_init()
 
-project(sid_pico)
-add_subdirectory(./src)
+add_executable(${PROJECT_NAME}
+    src/sid_pico.c
+)
 
+target_link_libraries(${PROJECT_NAME} pico_stdlib hardware_pwm)
+
+pico_add_extra_outputs(${PROJECT_NAME})
+
+install(FILES
+    ${CMAKE_CURRENT_BINARY_DIR}/${PROJECT_NAME}.uf2
+    ${CMAKE_CURRENT_LIST_DIR}/README.md
+    DESTINATION .
+)
