@@ -3,14 +3,12 @@
 #include "hardware/pwm.h"
 #include "hardware/gpio.h"
 #include "hardware/uart.h"
+#include "pico/multicore.h"
 #include "sid.h"
 #include <time.h>
+#include "sid_pico.h"
 
-clock_t clock()
-{
-    return (clock_t) time_us_64() / 10000;
-}
-
+#define STARTED_FLAG 999
 #define CS_DELAY 1
 
 void write_sid(uint8_t addr,uint8_t data) {
@@ -102,50 +100,26 @@ void sid_start_clock() {
 
 }
 
-void test() {
-    printf("SID down \n");
-    gpio_put(A4,1);
-    gpio_put(A3,1);
-    gpio_put(A2,0);
-    gpio_put(A1,0);
-    gpio_put(A0,0);
+void test_beep() {
     
-    gpio_put(D7,0);
-    gpio_put(D6,0);
-    gpio_put(D5,0);
-    gpio_put(D4,0);
-    gpio_put(D3,0);
-    gpio_put(D2,0);
-    gpio_put(D1,0);
-    gpio_put(D0,0);
-    
-    gpio_put(CS,1);
-    gpio_put(CS,0);
-    busy_wait_us(CS_DELAY);
-    gpio_put(CS,1);
-    printf("SID up \n");
+    write_sid(24,15);
+  
+    while(true) {
 
-    gpio_put(D7,1);
-    gpio_put(D6,1);
-    gpio_put(D5,1);
-    gpio_put(D4,1);
-    gpio_put(D3,1);
-    gpio_put(D2,1);
-    gpio_put(D1,1);
-    gpio_put(D0,1);
-    
-    gpio_put(CS,1);
-    gpio_put(CS,0);
-    busy_wait_us(CS_DELAY);
-    gpio_put(CS,1);
-    printf("SID end \n");
-
+        write_sid(24,21);
+        write_sid(5,9);
+        write_sid(6,0);
+        write_sid(1,48);
+        write_sid(4,32);
+        write_sid(4,33);
+        sleep_ms(2000); 
+    }
 }
 int main() {
     
-    uint8_t tune[] = { 17,37,19,63,21,154,22,227,25,177,28,214,32,94,34,175 };
-
     stdio_init_all();
+
+    multicore_launch_core1(test_beep);
 
     init_pins();
 
@@ -155,20 +129,10 @@ int main() {
     
     sid_reset();
 
-    printf("Setting volume to max (15)\n");
-  
- 
-    write_sid(24,15);
-    
     while(true) {
-
-        write_sid(24,21);
-        write_sid(5,9);
-        write_sid(6,0);
-        write_sid(1,48);
-        write_sid(4,32);
-        write_sid(4,33);
-        sleep_ms(2000);
+        printf("Hello\n");
+        sleep_ms(1000);
     }
+    
 
 }
