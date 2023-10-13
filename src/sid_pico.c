@@ -11,11 +11,9 @@ clock_t clock()
     return (clock_t) time_us_64() / 10000;
 }
 
-#define CS_DELAY 60000
+#define CS_DELAY 1
 
 void write_sid(uint8_t addr,uint8_t data) {
-
-    clock_t startTime = clock();
 
 	data &= 0xff;
 	addr &= 0x1f;
@@ -27,14 +25,9 @@ void write_sid(uint8_t addr,uint8_t data) {
         gpio_put(i + DATA_OFFSET, (data >> i) & 1);
 	}
     gpio_put(CS,0);
-    busy_wait_us(CS_DELAY);	
+    sleep_us(CS_DELAY);	
     gpio_put(CS,1);
-    busy_wait_us(CS_DELAY);	
-
-    clock_t endTime = clock();
-
-    double executionTime = (double)(endTime - startTime) / CLOCKS_PER_SEC;
-    //printf("%.8f sec\n", executionTime);
+    sleep_us(5);	
 	
 }
 
@@ -90,6 +83,9 @@ void sid_reset() {
     gpio_put(RES,0);
     sleep_ms(20);
     gpio_put(RES,1);
+    for(int i=0; i < 32; i++) {
+        write_sid(i,0);    
+    }  
 
 
 }
@@ -160,21 +156,19 @@ int main() {
     sid_reset();
 
     printf("Setting volume to max (15)\n");
-    
+  
  
-
+    write_sid(24,15);
+    
     while(true) {
-        for(int i=0; i < 32; i++) {
-            write_sid(i,0);    
-        }
-        write_sid(24,15);
+
         write_sid(24,21);
         write_sid(5,9);
         write_sid(6,0);
         write_sid(1,48);
         write_sid(4,32);
         write_sid(4,33);
-        sleep_ms(1000);
+        sleep_ms(2000);
     }
 
 }
