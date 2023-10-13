@@ -1,0 +1,31 @@
+                NC  - X   X - pin 5 sid Reset (gnd)
+GPIO 14         D7  - X   X - N/C
+GPIO 13         D6  - X   X - pin 7 sid R/W
+                CLK - X   X - GND
+                N/C - X   X - N/C
+GPIO 12         D5  - X   X - CS
+GPIO 11         D4  - X   X - RW
+GPIO 10         D3  - X   X - A0 (GPIO 2)
+                N/C - X   X - A1 (GPIO 3)
+GPIO 9          D2  - X   X - GND
+GPIO 8          D1  - X   X - A2 (GPIO 4)
+GPIO 7          D0  - X   X - A3 (GPIO 5)
+                N/C - X   X - A4 (GPIO 6)
+
+      GPIO
+red     2
+white   3
+orange  4
+brown   5
+NC      GND
+blue    6
+green   7
+yellow  8
+orange  9
+NC      GND
+red     10
+purple  11
+black   12
+white   13
+green   14
+blue    15
