@@ -8,7 +8,6 @@
 #include <time.h>
 #include "sid_pico.h"
 
-#define STARTED_FLAG 999
 #define CS_DELAY 1
 
 void write_sid(uint8_t addr,uint8_t data) {
@@ -23,9 +22,9 @@ void write_sid(uint8_t addr,uint8_t data) {
         gpio_put(i + DATA_OFFSET, (data >> i) & 1);
 	}
     gpio_put(CS,0);
-    sleep_us(CS_DELAY);	
+    busy_wait_us(CS_DELAY);	
     gpio_put(CS,1);
-    sleep_us(5);	
+    busy_wait_us(5);	
 	
 }
 
