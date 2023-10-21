@@ -1,7 +1,7 @@
 #ifndef __SID_H_
 #define __SID_H_
 
-#define CS 	15
+#define CS 	22
 #define RW 	26
 #define RES 27
 #define CLK 28
