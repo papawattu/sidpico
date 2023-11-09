@@ -17,6 +17,11 @@
 #include "lwip/pbuf.h"
 #include "lwip/tcp.h"
 
+#include "hardware/pio.h"
+#include "sidpio.pio.h"
+
+#include "hardware/clocks.h"
+
 #define TCP_PORT 6581
 #define DEBUG_printf printf
 #define BUF_SIZE 2048
@@ -24,6 +29,17 @@
 #define POLL_TIME_S 5
 
 #define CS_DELAY 1
+
+PIO pio;
+uint sm;
+uint offset;
+
+void write_sid_pio(uint8_t addr,uint8_t data, uint16_t delay) {
+    uint command = delay << 16 | ((addr << 8) | data);
+    printf("%02x\n",command);
+    pio_sm_put_blocking(pio, sm, command);
+
+}
 
 void write_sid(uint8_t addr,uint8_t data, uint16_t delay) {
 
@@ -45,41 +61,39 @@ void write_sid(uint8_t addr,uint8_t data, uint16_t delay) {
 
 void init_pins() {
 
-    gpio_init(CS);
-    gpio_set_dir(CS, GPIO_OUT);
+    // gpio_init(CS);
+    // gpio_set_dir(CS, GPIO_OUT);
 
     gpio_init(RES);
     gpio_set_dir(RES, GPIO_OUT);
+    gpio_put(RES,0);
 
-    gpio_init(RW);
-    gpio_set_dir(RW, GPIO_OUT);
-
-    gpio_init(A0);
-    gpio_set_dir(A0, GPIO_OUT);
-    gpio_init(A1);
-    gpio_set_dir(A1, GPIO_OUT);
-    gpio_init(A2);
-    gpio_set_dir(A2, GPIO_OUT);
-    gpio_init(A3);
-    gpio_set_dir(A3, GPIO_OUT);
-    gpio_init(A4);
-    gpio_set_dir(A4, GPIO_OUT);
-    gpio_init(D0);
-    gpio_set_dir(D0, GPIO_OUT);
-    gpio_init(D1);
-    gpio_set_dir(D1, GPIO_OUT);
-    gpio_init(D2);
-    gpio_set_dir(D2, GPIO_OUT);
-    gpio_init(D3);
-    gpio_set_dir(D3, GPIO_OUT);
-    gpio_init(D4);
-    gpio_set_dir(D4, GPIO_OUT);
-    gpio_init(D5);
-    gpio_set_dir(D5, GPIO_OUT);
-    gpio_init(D6);
-    gpio_set_dir(D6, GPIO_OUT);
-    gpio_init(D7);
-    gpio_set_dir(D7, GPIO_OUT);
+    // gpio_init(A0);
+    // gpio_set_dir(A0, GPIO_OUT);
+    // gpio_init(A1);
+    // gpio_set_dir(A1, GPIO_OUT);
+    // gpio_init(A2);
+    // gpio_set_dir(A2, GPIO_OUT);
+    // gpio_init(A3);
+    // gpio_set_dir(A3, GPIO_OUT);
+    // gpio_init(A4);
+    // gpio_set_dir(A4, GPIO_OUT);
+    // gpio_init(D0);
+    // gpio_set_dir(D0, GPIO_OUT);
+    // gpio_init(D1);
+    // gpio_set_dir(D1, GPIO_OUT);
+    // gpio_init(D2);
+    // gpio_set_dir(D2, GPIO_OUT);
+    // gpio_init(D3);
+    // gpio_set_dir(D3, GPIO_OUT);
+    // gpio_init(D4);
+    // gpio_set_dir(D4, GPIO_OUT);
+    // gpio_init(D5);
+    // gpio_set_dir(D5, GPIO_OUT);
+    // gpio_init(D6);
+    // gpio_set_dir(D6, GPIO_OUT);
+    // gpio_init(D7);
+    // gpio_set_dir(D7, GPIO_OUT);
 
     
 }
@@ -96,7 +110,7 @@ void sid_reset() {
     sleep_ms(20);
     gpio_put(RES,1);
     for(int i=0; i < 32; i++) {
-        write_sid(i,0,0);    
+        write_sid_pio(i,0,0);    
     }  
 
 
@@ -114,20 +128,32 @@ void sid_start_clock() {
 
 }
 
+void test_addr_data() {
+    for(int i=15; i >= 0;i--) {
+           
+        uint b = 1 << i;
+        printf("%02x\n",b);
+        pio_sm_put_blocking(pio, sm,b);
+        sleep_ms(1000);
+            
+    }  
+}
 void test_beep() {
-    
-    write_sid(24,15,20);
-  
-   // while(true) {
 
-        write_sid(24,21,20);
-        write_sid(5,9,20);
-        write_sid(6,0,20);
-        write_sid(1,48,20);
-        write_sid(4,32,20);
-        write_sid(4,33,20);
+    printf("Test Beep\n");
+    write_sid_pio(24,15,20);
+  
+    while(true) {
+
+        printf("Beep\n");
+        write_sid_pio(24,21,20);
+        write_sid_pio(5,9,20);
+        write_sid_pio(6,0,20);
+        write_sid_pio(1,48,20);
+        write_sid_pio(4,32,20);
+        write_sid_pio(4,33,20);
         sleep_ms(2000); 
-//    }
+    }
 }
 void sid_command() {
 
@@ -138,6 +164,15 @@ void sid_command() {
         uint8_t reg = command >> 8;
         uint8_t value = command & 0xff;
         write_sid(reg,value, (delayHigh << 8) | delayLow);
+    }
+}
+
+void sid_command_pio() {
+
+    while(true) {
+        uint32_t command = multicore_fifo_pop_blocking();
+        pio_sm_put_blocking(pio, sm, command);
+        
     }
 }
 
@@ -312,9 +347,17 @@ void run_sid_server_test(void) {
 }
 
 int main() {
+
+    static const float pio_freq = 125;
+    
+    pio = pio0;
+
+    offset = pio_add_program(pio, &sidpio_program);
+
+    sm = pio_claim_unused_sm(pio, true);
     
     stdio_init_all();
-
+/*
     printf("Connecting to network\n");
     if (cyw43_arch_init()) {
         printf("failed to initialise\n");
@@ -330,23 +373,34 @@ int main() {
     } else {
         printf("Connected.\n");
     }
-
-    multicore_launch_core1(sid_command);
+*/
+    //multicore_launch_core1(sid_command_pio);
 
     init_pins();
 
-    sid_start_clock();
+//    sid_start_clock();
+
+    sidpio_program_init(pio, sm, offset, BASE_PIN, CS, CLK);
 
     printf("Resetting SID\n");
     
     sid_reset();
 
-    sleep_ms(5);
-
     test_beep();
 
+    //test_addr_data();
+
     while(1) {
-        run_sid_server_test();
+        //run_sid_server_test();
+        // pio_sm_put_blocking(pio, sm, 0xffff1000);
+        // pio_sm_put_blocking(pio, sm, 0xffff0100);
+        // pio_sm_put_blocking(pio, sm, 0xffff0080);
+        // pio_sm_put_blocking(pio, sm, 0xffff0001);
+        // pio_sm_put_blocking(pio, sm, 0xffff0000);
+        // pio_sm_put_blocking(pio, sm, 0xffff0000);
+        
+        
+        //pio_sm_put_blocking(pio, sm, command && 0xffff);
     }
     
 }

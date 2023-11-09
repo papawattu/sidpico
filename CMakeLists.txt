@@ -10,11 +10,13 @@ set(CMAKE_CXX_STANDARD 17)
 # Initialize the SDK
 pico_sdk_init()
 
-
 add_executable(${PROJECT_NAME}
     src/sid_pico.c
     src/sid_server.c
 )
+
+
+
 if (DEFINED ENV{WIFI_SSID} AND (NOT WIFI_SSID))
     set(WIFI_SSID $ENV{WIFI_SSID})
     message("Using WIFI_SSID from environment ('${WIFI_SSID}')")
@@ -34,13 +36,16 @@ target_compile_definitions(${PROJECT_NAME} PRIVATE
         WIFI_PASSWORD=\"${WIFI_PASSWORD}\"
         )
 target_include_directories(${PROJECT_NAME} PRIVATE
-        ${CMAKE_CURRENT_LIST_DIR}
-        ${CMAKE_CURRENT_LIST_DIR}
+        ${CMAKE_CURRENT_LIST_DIR}/src
+        ${CMAKE_CURRENT_LIST_DIR}/..
         )
 target_link_libraries(${PROJECT_NAME}   pico_stdlib
                                         pico_multicore
                                         pico_cyw43_arch_lwip_poll
+                                        hardware_pio
                                         hardware_pwm)
+
+pico_generate_pio_header(${PROJECT_NAME} ${CMAKE_CURRENT_LIST_DIR}/src/sidpio.pio)
 pico_enable_stdio_usb(${PROJECT_NAME} 0)
 pico_enable_stdio_uart(${PROJECT_NAME} 1)
 pico_add_extra_outputs(${PROJECT_NAME})

@@ -7,6 +7,8 @@
 #include <string.h>
 #include "pico/multicore.h"
 #include "sid_server.h"
+#include "hardware/pio.h"
+#include "sidpio.pio.h"
 
 unsigned int dataWritePos = 0;
 unsigned int dataReadPos = 0;

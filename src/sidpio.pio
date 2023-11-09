@@ -1,0 +1,57 @@
+.program sidpio
+
+; Repeatedly get one word of data from the TX FIFO, stalling when the FIFO is
+; empty. Write the least significant bit to the OUT pin group.
+
+
+.side_set 1
+
+.wrap_target
+    set pins, 1   side 1
+main:
+    nop               side 0
+    jmp !OSRE, write  side 1
+.wrap
+write:
+    nop           side 0
+    out pins, 13  side 1
+    out null, 3   side 0
+    set pins, 0   side 1
+    nop           side 0
+    nop           side 1
+    nop           side 0
+    nop           side 1
+    nop           side 0
+    set pins, 1   side 1
+    out y, 16     side 0
+loop:
+    nop           side 1
+    jmp y-- loop  side 0
+    jmp main      side 1
+
+% c-sdk {
+static inline void sidpio_program_init(PIO pio, uint sm, uint offset, uint pin, uint cs, uint clk) {
+    pio_sm_config c = sidpio_program_get_default_config(offset);
+    for(int i=pin;i<pin + 13;i++) {
+        pio_gpio_init(pio, i);
+    }
+
+    pio_gpio_init(pio, cs);
+    pio_gpio_init(pio, clk);
+    
+    sm_config_set_out_pins(&c, pin, 13);
+    sm_config_set_set_pins(&c, cs, 1);
+    sm_config_set_sideset_pins(&c, clk);
+
+    sm_config_set_clkdiv(&c,64.0f);
+
+    sm_config_set_out_shift(&c, true, true, 32);
+    
+    pio_sm_set_consecutive_pindirs(pio, sm, pin, 13, true);
+    pio_sm_set_consecutive_pindirs(pio, sm, cs, 1, true);
+    pio_sm_set_consecutive_pindirs(pio, sm, clk, 1, true);
+
+    pio_sm_init(pio, sm, offset, &c);
+    pio_sm_set_enabled(pio, sm, true);
+}
+%}

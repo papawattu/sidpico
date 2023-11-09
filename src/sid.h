@@ -1,13 +1,14 @@
 #ifndef __SID_H_
 #define __SID_H_
 
-#define CS 	22
-#define RW 	26
-#define RES 27
-#define CLK 28
+#define CS 	15
+#define RES 17
+#define CLK 16
 
 #define DATA_OFFSET 7
 #define ADDR_OFFSET 2
+
+#define BASE_PIN 2
 
 #define A0  2
 #define A1  3
