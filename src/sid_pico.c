@@ -36,7 +36,6 @@ uint offset;
 
 void write_sid_pio(uint8_t addr,uint8_t data, uint16_t delay) {
     uint command = delay << 16 | ((addr << 8) | data);
-    printf("%02x\n",command);
     pio_sm_put_blocking(pio, sm, command);
 
 }
@@ -46,11 +45,11 @@ void write_sid(uint8_t addr,uint8_t data, uint16_t delay) {
 	data &= 0xff;
 	addr &= 0x1f;
 	
-    for(int i  = 5;i >= 0; i--) {
-		gpio_put(i + ADDR_OFFSET, (addr >> i) & 1);
+    for(int i  = 0;i < 5; i++) {
+		gpio_put(ADDR_OFFSET - i, (addr >> (4 - i)) & 1);
 	}
-    for(int i = 8;i >= 0; i--) {     
-        gpio_put(i + DATA_OFFSET, (data >> i) & 1);
+    for(int i = 0;i < 8; i++) {     
+        gpio_put(DATA_OFFSET - i, (data >> i) & 1);
 	}
     gpio_put(CS,0);
     sleep_us(CS_DELAY);	
@@ -128,16 +127,6 @@ void sid_start_clock() {
 
 }
 
-void test_addr_data() {
-    for(int i=15; i >= 0;i--) {
-           
-        uint b = 1 << i;
-        printf("%02x\n",b);
-        pio_sm_put_blocking(pio, sm,b);
-        sleep_ms(1000);
-            
-    }  
-}
 void test_beep() {
 
     printf("Test Beep\n");
@@ -353,7 +342,7 @@ void test_addr() {
 
         for(int i=0;i<8;i++) {
             printf("Addr %02x Data %02x\n",i % 5,i);
-            write_sid(1 << i,1 << i,20);
+            write_sid_pio(1 << i,1 << i,0xffff);
             sleep_ms(500);        
         }
     }
@@ -370,10 +359,10 @@ int main() {
     sm = pio_claim_unused_sm(pio, true);
     
     stdio_init_all();
-/*
+
     printf("Connecting to network\n");
     if (cyw43_arch_init()) {
-        printf("failed to initialise\n");
+            printf("failed to initialise\n");
         return 1;
     }
 
@@ -386,8 +375,8 @@ int main() {
     } else {
         printf("Connected.\n");
     }
-*/
-    //multicore_launch_core1(sid_command_pio);
+
+    multicore_launch_core1(sid_command_pio);
 
     init_pins();
 
@@ -399,21 +388,12 @@ int main() {
     
     sid_reset();
 
-    test_beep();
+    //test_beep();
 
-    test_addr();
+    //test_addr();
 
     while(1) {
-        //run_sid_server_test();
-        // pio_sm_put_blocking(pio, sm, 0xffff1000);
-        // pio_sm_put_blocking(pio, sm, 0xffff0100);
-        // pio_sm_put_blocking(pio, sm, 0xffff0080);
-        // pio_sm_put_blocking(pio, sm, 0xffff0001);
-        // pio_sm_put_blocking(pio, sm, 0xffff0000);
-        // pio_sm_put_blocking(pio, sm, 0xffff0000);
-        
-        
-        //pio_sm_put_blocking(pio, sm, command && 0xffff);
+        run_sid_server_test();
     }
     
 }

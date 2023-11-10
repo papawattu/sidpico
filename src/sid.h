@@ -5,8 +5,8 @@
 #define RES 17
 #define CLK 16
 
-#define DATA_OFFSET 7
-#define ADDR_OFFSET 2
+#define DATA_OFFSET 9
+#define ADDR_OFFSET 14
 
 #define BASE_PIN 2
 
