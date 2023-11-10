@@ -346,6 +346,19 @@ void run_sid_server_test(void) {
     free(state);
 }
 
+void test_addr() {
+    
+     printf("Test\n");
+    while(true) {
+
+        for(int i=0;i<8;i++) {
+            printf("Addr %02x Data %02x\n",i % 5,i);
+            write_sid(1 << i,1 << i,20);
+            sleep_ms(500);        
+        }
+    }
+}
+
 int main() {
 
     static const float pio_freq = 125;
@@ -388,7 +401,7 @@ int main() {
 
     test_beep();
 
-    //test_addr_data();
+    test_addr();
 
     while(1) {
         //run_sid_server_test();
