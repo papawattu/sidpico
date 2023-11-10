@@ -30,11 +30,11 @@ void write_sid(uint8_t addr,uint8_t data, uint16_t delay) {
 	data &= 0xff;
 	addr &= 0x1f;
 	
-    for(int i  = 5;i >= 0; i--) {
-		gpio_put(i + ADDR_OFFSET, (addr >> i) & 1);
+    for(int i  = 0;i < 5; i++) {
+		gpio_put(ADDR_OFFSET - i, (addr >> (4 - i)) & 1);
 	}
-    for(int i = 8;i >= 0; i--) {     
-        gpio_put(i + DATA_OFFSET, (data >> i) & 1);
+    for(int i = 0;i < 8; i++) {     
+        gpio_put(DATA_OFFSET - i, (data >> i) & 1);
 	}
     gpio_put(CS,0);
     sleep_us(CS_DELAY);	
@@ -118,8 +118,8 @@ void test_beep() {
     
     write_sid(24,15,20);
   
-   // while(true) {
-
+    while(true) {
+        printf("Beep\n");
         write_sid(24,21,20);
         write_sid(5,9,20);
         write_sid(6,0,20);
@@ -127,7 +127,19 @@ void test_beep() {
         write_sid(4,32,20);
         write_sid(4,33,20);
         sleep_ms(2000); 
-//    }
+    }
+}
+void test_addr() {
+    
+     printf("Test\n");
+    while(true) {
+
+        for(int i=0;i<8;i++) {
+            printf("Addr %02x Data %02x\n",i % 5,i);
+            write_sid(1 << i,1 << i,20);
+            sleep_ms(500);        
+        }
+    }
 }
 void sid_command() {
 
@@ -311,13 +323,10 @@ void run_sid_server_test(void) {
     free(state);
 }
 
-int main() {
-    
-    stdio_init_all();
-
+void connect_wifi() {
     printf("Connecting to network\n");
     if (cyw43_arch_init()) {
-        printf("failed to initialise\n");
+            printf("failed to initialise\n");
         return 1;
     }
 
@@ -330,6 +339,10 @@ int main() {
     } else {
         printf("Connected.\n");
     }
+}
+int main() {
+    
+    stdio_init_all();
 
     multicore_launch_core1(sid_command);
 
@@ -341,12 +354,14 @@ int main() {
     
     sid_reset();
 
-    sleep_ms(5);
-
-    test_beep();
-
+    test_addr();
+    
+    //test_beep();
+    
     while(1) {
-        run_sid_server_test();
+    //    run_sid_server_test();
+        write_sid(0x01, 0x01,0);
+        sleep_ms(1000);
     }
     
 }
