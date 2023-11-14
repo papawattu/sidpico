@@ -6,27 +6,24 @@
 
 .side_set 1
 
-.wrap_target
+
     set pins, 1   side 1
+.wrap_target
 main:
     nop               side 0
     jmp !OSRE, write  side 1
 .wrap
 write:
-    nop           side 0
-    out pins, 13  side 1
-    out null, 3   side 0
-    set pins, 0   side 1
-    nop           side 0
+    out pins, 13  side 0
+    out null, 3   side 1
+    set pins, 0   side 0
     nop           side 1
-    nop           side 0
-    nop           side 1
-    nop           side 0
-    set pins, 1   side 1
-    out y, 16     side 0
+    set pins, 1   side 0
+    out y, 16     side 1
 loop:
-    nop           side 1
-    jmp y-- loop  side 0
+    nop           side 0
+    jmp y-- loop  side 1
+    nop           side 0
     jmp main      side 1
 
 % c-sdk {
@@ -43,7 +40,7 @@ static inline void sidpio_program_init(PIO pio, uint sm, uint offset, uint pin, 
     sm_config_set_set_pins(&c, cs, 1);
     sm_config_set_sideset_pins(&c, clk);
 
-    sm_config_set_clkdiv(&c,64.0f);
+    sm_config_set_clkdiv(&c,62.5f);
 
     sm_config_set_out_shift(&c, true, true, 32);
     

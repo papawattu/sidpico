@@ -7,6 +7,7 @@
 #include <string.h>
 #include "pico/multicore.h"
 #include "sid_server.h"
+#include "sid.h"
 #include "hardware/pio.h"
 #include "sidpio.pio.h"
 
@@ -50,15 +51,19 @@ size_t processReadBuffer(sid_server_t *state) {
 			printf("We have a problem\n");
 			break;
 		}
-		if(multicore_fifo_wready()) {
 		//printf("Sid write : %02x %02x cycles %02x\n", dataRead[dataReadPos], dataRead[dataReadPos+1], (dataRead[dataReadPos+2] << 8) | dataRead[dataReadPos+3]);
-			for(int i = 0; i < dataLength; i+=4) {
-				multicore_fifo_push_blocking((dataRead[dataReadPos++] << 24) | (dataRead[dataReadPos++] << 16) | (dataRead[dataReadPos++] << 8) | dataRead[dataReadPos++]);
-			}	
-			dataWritePos += return_ok(dataWrite);
-		} else{
+		if(dataLength > (QUEUE_SIZE - queue_get_level(&command_queue))) {
 			dataWrite[dataWritePos++] = BUSY;
+			break;
 		}
+		for(int i = 0; i < dataLength; i+=4) {
+			if(!queue_is_full(&command_queue)) {
+				uint32_t command = (dataRead[dataReadPos++] << 24) | (dataRead[dataReadPos++] << 16) | (dataRead[dataReadPos++] << 8) | dataRead[dataReadPos++];
+				queue_add_blocking(&command_queue, &command);
+			}
+				//multicore_fifo_push_blocking((dataRead[dataReadPos++] << 24) | (dataRead[dataReadPos++] << 16) | (dataRead[dataReadPos++] << 8) | dataRead[dataReadPos++]);	
+		}
+		dataWritePos += return_ok(dataWrite);
 		break;
 	}
 	case GET_VERSION: {
@@ -75,7 +80,10 @@ size_t processReadBuffer(sid_server_t *state) {
 		break;
 	}
 	case FLUSH: {
-		multicore_fifo_drain();
+		while(!queue_is_empty(&command_queue)) {
+			uint32_t command;
+			queue_remove_blocking(&command_queue,&command);
+		}
 		dataWritePos += return_ok(dataWrite);
 		break;
 	}

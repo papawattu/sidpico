@@ -1,6 +1,8 @@
 #ifndef __SID_H_
 #define __SID_H_
 
+#include "pico/util/queue.h"
+
 #define CS 	15
 #define RES 17
 #define CLK 16
@@ -24,5 +26,9 @@
 #define D5  12
 #define D6  13
 #define D7  14
+
+#define QUEUE_SIZE 1024
+
+queue_t command_queue;
 
 #endif
