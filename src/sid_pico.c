@@ -17,24 +17,43 @@
 #include "lwip/pbuf.h"
 #include "lwip/tcp.h"
 
+#include "hardware/pio.h"
+#include "sidpio.pio.h"
+
+#include "hardware/clocks.h"
+
 #define TCP_PORT 6581
 #define DEBUG_printf printf
-#define BUF_SIZE 2048
+//#define BUF_SIZE 16384
 #define TEST_ITERATIONS 10
 #define POLL_TIME_S 5
 
 #define CS_DELAY 1
+//#define ORIG
+#define NET_ENABLED
 
-void write_sid(uint8_t addr,uint8_t data, uint16_t delay) {
+PIO pio;
+uint sm; 
+uint offset;
+
+void (*write_sid)(uint8_t,uint8_t,uint16_t);
+
+void write_sid_pio(uint8_t addr,uint8_t data, uint16_t delay) {
+    uint command = delay << 16 | ((addr << 8) | data);
+    pio_sm_put_blocking(pio, sm, command);
+
+}
+
+void write_sid_orig(uint8_t addr,uint8_t data, uint16_t delay) {
 
 	data &= 0xff;
 	addr &= 0x1f;
 	
     for(int i  = 0;i < 5; i++) {
-		gpio_put(ADDR_OFFSET - i, (addr >> (4 - i)) & 1);
+		gpio_put(ADDR_OFFSET - i, (addr >> (5 - i)) & 1);
 	}
     for(int i = 0;i < 8; i++) {     
-        gpio_put(DATA_OFFSET - i, (data >> i) & 1);
+        gpio_put(DATA_OFFSET - i, (data >> (8 - i)) & 1);
 	}
     gpio_put(CS,0);
     sleep_us(CS_DELAY);	
@@ -45,15 +64,15 @@ void write_sid(uint8_t addr,uint8_t data, uint16_t delay) {
 
 void init_pins() {
 
-    gpio_init(CS);
-    gpio_set_dir(CS, GPIO_OUT);
+
 
     gpio_init(RES);
     gpio_set_dir(RES, GPIO_OUT);
+    gpio_put(RES,0);
 
-    gpio_init(RW);
-    gpio_set_dir(RW, GPIO_OUT);
-
+#ifdef ORIG
+    gpio_init(CS);
+    gpio_set_dir(CS, GPIO_OUT);
     gpio_init(A0);
     gpio_set_dir(A0, GPIO_OUT);
     gpio_init(A1);
@@ -80,6 +99,7 @@ void init_pins() {
     gpio_set_dir(D6, GPIO_OUT);
     gpio_init(D7);
     gpio_set_dir(D7, GPIO_OUT);
+#endif
 
     
 }
@@ -103,9 +123,9 @@ void sid_reset() {
 }
 void sid_start_clock() {
     
-    gpio_set_function(CLK, GPIO_FUNC_PWM);
+    gpio_set_function(18, GPIO_FUNC_PWM);
     
-    uint slice_num = pwm_gpio_to_slice_num(CLK);
+    uint slice_num = pwm_gpio_to_slice_num(18);
 
     pwm_set_clkdiv(slice_num, 64); // pwm clock should now be running at 1MHz
     pwm_set_wrap(slice_num, 1);
@@ -115,10 +135,16 @@ void sid_start_clock() {
 }
 
 void test_beep() {
-    
+
+#ifdef ORIG
+    printf("Test Beep\n");
+#else 
+    printf("Test Beep PIO\n");
+#endif
     write_sid(24,15,20);
   
     while(true) {
+
         printf("Beep\n");
         write_sid(24,21,20);
         write_sid(5,9,20);
@@ -129,20 +155,9 @@ void test_beep() {
         sleep_ms(2000); 
     }
 }
-void test_addr() {
-    
-     printf("Test\n");
-    while(true) {
-
-        for(int i=0;i<8;i++) {
-            printf("Addr %02x Data %02x\n",i % 5,i);
-            write_sid(1 << i,1 << i,20);
-            sleep_ms(500);        
-        }
-    }
-}
 void sid_command() {
 
+#ifdef ORIG
     while(true) {
         uint32_t command = multicore_fifo_pop_blocking();
         uint8_t delayHigh = command >> 24;
@@ -151,6 +166,16 @@ void sid_command() {
         uint8_t value = command & 0xff;
         write_sid(reg,value, (delayHigh << 8) | delayLow);
     }
+#else 
+    while(true) {
+        if(!queue_is_empty(&command_queue)) {
+            uint32_t command;
+            queue_remove_blocking(&command_queue,&command); 
+            pio_sm_put_blocking(pio, sm, command);
+        }
+        
+    }
+#endif
 }
 
 #define BUFFER_LENGTH 100
@@ -318,12 +343,37 @@ void run_sid_server_test(void) {
     }
     while(true) {
         cyw43_arch_poll();
-        cyw43_arch_wait_for_work_until(make_timeout_time_ms(1000));
+       // cyw43_arch_wait_for_work_until(make_timeout_time_ms(100));
     }
     free(state);
 }
 
-void connect_wifi() {
+void test_addr() {
+    
+     printf("Test\n");
+    while(true) {
+
+        for(int i=0;i<8;i++) {
+            printf("Addr %02x Data %02x\n",i % 5,i);
+            write_sid(1 << i,1 << i,0xffff);
+            sleep_ms(500);        
+        }
+    }
+}
+
+int main() {
+
+    static const float pio_freq = 125;
+    
+    pio = pio0;
+
+    offset = pio_add_program(pio, &sidpio_program);
+
+    sm = pio_claim_unused_sm(pio, true);
+    
+    stdio_init_all();
+
+#ifdef NET_ENABLED
     printf("Connecting to network\n");
     if (cyw43_arch_init()) {
             printf("failed to initialise\n");
@@ -339,29 +389,34 @@ void connect_wifi() {
     } else {
         printf("Connected.\n");
     }
-}
-int main() {
-    
-    stdio_init_all();
 
+#endif
+
+    queue_init(&command_queue, sizeof(uint32_t), QUEUE_SIZE);
     multicore_launch_core1(sid_command);
 
     init_pins();
 
-    sid_start_clock();
+    //sid_start_clock();
 
+#ifndef ORIG
+    sidpio_program_init(pio, sm, offset, BASE_PIN, CS, CLK);
+    write_sid = &write_sid_pio;
+#else 
+    write_sid = &write_sid_orig;
+#endif
     printf("Resetting SID\n");
+
+    
     
     sid_reset();
 
-    test_addr();
-    
     //test_beep();
-    
+
+    //test_addr();
+
     while(1) {
-    //    run_sid_server_test();
-        write_sid(0x01, 0x01,0);
-        sleep_ms(1000);
+        run_sid_server_test();
     }
     
 }
